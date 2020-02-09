@@ -25,7 +25,10 @@ install_requires = [
     'boto3',
     'placebo',
     'botocore',
-    'pytest'
+    'pytest',
+    'structlog',
+    'pytz',
+    'python-json-logger'
 ]
 
 setup(

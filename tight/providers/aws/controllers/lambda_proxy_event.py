@@ -16,9 +16,12 @@ import sys
 import importlib
 import json
 import traceback
-import re
+import datetime
 from functools import partial
-from tight.core.logger import info, error
+from tight.core.structured_logger import log
+from structlog.threadlocal import (
+    bind_threadlocal,
+)
 
 methods = [
     'get', 'post', 'patch', 'put', 'delete', 'options'
@@ -72,7 +75,7 @@ class LambdaProxyController():
             try:
                 event['body'] = json.loads(event['body'])
             except Exception as e:
-                info(message='Could not json.loads ' + str(event['body']))
+                log.info(message='Could not json.loads ' + str(event['body']))
                 event['body'] = {}
         try:
             principal_id = event['requestContext']['authorizer']['claims']['sub']
@@ -113,7 +116,15 @@ class LambdaProxyController():
         controller_name = args[0]
         event = args[1]
         context = args[2]
+        bind_threadlocal(
+            function_name=('function_name' in context and context.function_name) or 'LAMBDA_FUNCTION_NAME',
+            function_version=('function_version' in context and context.function_version) or 'FUNCTION_VERSION',
+            request_id=('aws_request_id' in context and context.aws_request_id) or 'AWS_REQUEST_ID',
+            run_start_time=datetime.datetime.now()
+        )
         method = event['httpMethod']
+        method_name = ':'.join([controller_name, method])
+        log.info(f'RUN_{method_name}')
         method_handler = self.methods[':'.join([controller_name, method])]
         method_handler_args = self.prepare_args(*args, **kwargs)
         try:
@@ -126,10 +137,8 @@ class LambdaProxyController():
         if type(method_response) is dict:
             prepared_response = self.prepare_response(**method_response)
         else:
-            trace_lines = trace_lines.replace('\n', '\\n')
-            error(message=trace_lines)
-            raise Exception('There was an error.')
-
+            log.error('TIGHT_APP_FAILURE', exception=trace_lines, lambda_event=event, lambda_context=context)
+            raise Exception('TIGHT_APP_FAILURE')
         return prepared_response
 
 
