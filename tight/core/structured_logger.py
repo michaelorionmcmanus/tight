@@ -13,11 +13,10 @@ if root.handlers:
         root.removeHandler(handler)
 
 logging.basicConfig(format='%(message)s', level=('LOG_LEVEL' in os.environ and os.environ['LOG_LEVEL']) or logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(jsonlogger.JsonFormatter())
-root_logger = logging.getLogger()
-root_logger.propagate = False
-root_logger.addHandler(handler)
+# handler = logging.StreamHandler(sys.stdout)
+# handler.setFormatter(jsonlogger.JsonFormatter())
+# root_logger = logging.getLogger()
+# root_logger.addHandler(handler)
 
 
 def censor_password(_, __, event_dict):
