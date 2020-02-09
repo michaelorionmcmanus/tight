@@ -75,7 +75,7 @@ class LambdaProxyController():
             try:
                 event['body'] = json.loads(event['body'])
             except Exception as e:
-                log.info(message='Could not json.loads ' + str(event['body']))
+                log.info('Could not json.loads ' + str(event['body']))
                 event['body'] = {}
         try:
             principal_id = event['requestContext']['authorizer']['claims']['sub']
@@ -89,6 +89,7 @@ class LambdaProxyController():
         }
 
     def prepare_response(self, *args, **kwargs):
+        log.info('LAMBDA_PROXY_LIFECYCLE_EVENT', lifecycle_event_name='prepare_response')
         if ('passthrough' in kwargs):
             return kwargs['passthrough']
         # Map return properties to the response.
@@ -113,37 +114,44 @@ class LambdaProxyController():
         raise HttpExitException(response_code, response)
 
     def run(self, *args, **kwargs):
-        controller_name = args[0]
-        event = args[1]
-        context = args[2]
-        bind_threadlocal(
-            function_name=context.function_name,
-            function_version=context.function_version,
-            request_id=context.aws_request_id,
-            run_start_time=datetime.datetime.now()
-        )
-        method = event['httpMethod']
-        method_name = ':'.join([controller_name, method])
-        log.info(f'RUN_{method_name}')
-        method_handler = self.methods[':'.join([controller_name, method])]
-        method_handler_args = self.prepare_args(*args, **kwargs)
         try:
+            controller_name = args[0]
+            event = args[1]
+            context = args[2]
+            bind_threadlocal(
+                function_name=context.function_name,
+                function_version=context.function_version,
+                request_id=context.aws_request_id,
+                run_start_time=datetime.datetime.now()
+            )
+            method = event['httpMethod']
+            method_name = ':'.join([controller_name, method])
+            log.info(f'RUN_{method_name}')
+            method_handler = self.methods[':'.join([controller_name, method])]
+            method_handler_args = self.prepare_args(*args, **kwargs)
             method_response = method_handler(*args, **method_handler_args)
-        except HttpExitException as http_exit_instance:
-            method_response = http_exit_instance.response
-        except Exception as e:
-            method_response = e
-            trace_lines = traceback.format_exc()
-        if type(method_response) is dict:
             prepared_response = self.prepare_response(**method_response)
-        else:
+            log.info('TIGHT_APP_RUN_SUCCESS')
+            log.debug('TIGHT_APP_RUN_SUCCESS_DEBUG', response=prepared_response)
+            return prepared_response
+        except HttpExitException as http_exit_instance:
+            try:
+                method_response = http_exit_instance.response
+                prepared_response = self.prepare_response(**method_response)
+                log.info('TIGHT_APP_RUN_SUCCESS')
+                log.debug('TIGHT_APP_RUN_SUCCESS_DEBUG', response=prepared_response)
+                return prepared_response
+            except Exception as e:
+                trace_lines = traceback.format_exc()
+                log.error('TIGHT_APP_FAILURE', exception=trace_lines, lambda_event=event, lambda_context=context)
+                raise e
+        except Exception as e:
+            trace_lines = traceback.format_exc()
             log.error('TIGHT_APP_FAILURE', exception=trace_lines, lambda_event=event, lambda_context=context)
-            raise Exception('TIGHT_APP_FAILURE')
-        return prepared_response
+            raise e
 
 
 LambdaProxySingleton = LambdaProxyController()
-
 current_module = sys.modules[__name__]
 
 
