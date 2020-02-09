@@ -117,9 +117,9 @@ class LambdaProxyController():
         event = args[1]
         context = args[2]
         bind_threadlocal(
-            function_name=('function_name' in context and str(context.function_name)) or 'LAMBDA_FUNCTION_NAME',
-            function_version=('function_version' in context and str(context.function_version)) or 'FUNCTION_VERSION',
-            request_id=('aws_request_id' in context and str(context.aws_request_id)) or 'AWS_REQUEST_ID',
+            function_name=context.function_name,
+            function_version=context.function_version,
+            request_id=context.aws_request_id,
             run_start_time=datetime.datetime.now()
         )
         method = event['httpMethod']
