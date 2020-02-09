@@ -11,10 +11,12 @@ root = logging.getLogger()
 if root.handlers:
     for handler in root.handlers:
         root.removeHandler(handler)
+
 logging.basicConfig(format='%(message)s', level=('LOG_LEVEL' in os.environ and os.environ['LOG_LEVEL']) or logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(jsonlogger.JsonFormatter())
 root_logger = logging.getLogger()
+root_logger.propagate = False
 root_logger.addHandler(handler)
 
 
