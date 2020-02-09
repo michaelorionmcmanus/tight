@@ -17,6 +17,7 @@ import importlib
 import json
 import traceback
 import datetime
+import time
 from functools import partial
 from tight.core.structured_logger import log
 from structlog.threadlocal import (
@@ -89,7 +90,7 @@ class LambdaProxyController():
         }
 
     def prepare_response(self, *args, **kwargs):
-        log.info('LAMBDA_PROXY_LIFECYCLE_EVENT', lifecycle_event_name='prepare_response')
+        log.info('TIGHT_PREPARE_RESPONSE')
         if ('passthrough' in kwargs):
             return kwargs['passthrough']
         # Map return properties to the response.
@@ -122,7 +123,8 @@ class LambdaProxyController():
                 function_name=context.function_name,
                 function_version=context.function_version,
                 request_id=context.aws_request_id,
-                run_start_time=datetime.datetime.now()
+                run_start_now=datetime.datetime.now(),
+                run_start_time=time.time()
             )
             method = event['httpMethod']
             method_name = ':'.join([controller_name, method])
